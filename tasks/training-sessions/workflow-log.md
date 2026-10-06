@@ -4,7 +4,7 @@ Task: `training-sessions`
 
 Developer: `Veraksa Svetlana`
 
-Active work started: `<timestamp>`
+Active work started: `2026-10-06 ~14:35` (first role `requirements-analyst`; `requirements.md` written at 14:40)
 
 ## Runtime Readiness
 
@@ -21,19 +21,35 @@ Active work started: `<timestamp>`
 | `~15:21` | `writing-plans` | see [Prompt 3](#prompt-3--writing-plans) | `tasks/training-sessions/implementation-plan.md`: 7 ordered steps; G-1…G-4 decided (Vitest 5 + Testing Library + jsdom + MSW 3, inline form, provisional `GET/POST /api/sessions`); essential test = filtering; risks R-1…R-9. ctx7 failed ("Monthly quota exceeded"), role used official docs + `npm view` instead | `accept` — pass R-1 (build with test files) and R-2 (MSW 3 API) to `coder` | `coder` (new session) |
 | `~15:41` | `coder` | see [Prompt 4](#prompt-4--coder) | Steps 1–6 implemented (`src/features/training-sessions/`, `src/mocks/`, `src/test/`, `App.tsx`, `main.tsx`, `vite.config.ts`, `package.json`). Deviation: `msw@2.15.0` instead of 3.0.2 because `@vitest/mocker@5.0.3` requires `msw ^2.4.9` (developer approved when the role asked during the run). Role-reported checks: lint 0 errors / 1 warning (`public/mockServiceWorker.js`), build pass, `npm test` 1st run failed (Vitest worker start timeout, no tests ran), 2nd/3rd runs 1/1 pass. ctx7 unavailable (quota), API checked against installed `.d.ts` | `accept` — independent re-run: lint 0 errors / 1 warning, build pass, `npm test` 1/1 pass; MSW 2.x deviation approved | `code-reviewer` (new session, staged diff) |
 | `~15:55` | `code-reviewer` | see [Prompt 5](#prompt-5--code-reviewer) | `tasks/training-sessions/review.md` (saved verbatim): verdict `NEEDS-CHANGES`; 0 blocking, 1 should-fix (S-1: duplicate-submit guard bypassed via Cancel / "New session" while POST pending, AC-CREATE-5), 7 nice-to-have (N-1…N-7); MSW 2.15 deviation confirmed correct. Note: `workflow-log.md` was also staged, so it was part of the 21-file review surface | `correct` — fix S-1 (real AC-CREATE-5 defect) and N-1 (one-line UX fix) via `coder`. Keep N-2 (a11y improvement, outside onboarding scope), N-3 / N-4 (dev / test-only), N-5 / N-6 (edge cases not defined by requirements), N-7 (fix needs `eslint.config.js`, which the plan keeps unchanged). Reviewed code committed as `ac881ae` | `coder` (fix S-1, N-1) |
-| `~16:05` | `coder` | see [Prompt 6](#prompt-6--coder-review-fixes) | S-1 fixed: Cancel disabled while the form is pending; `isCreatePending` lifted to `TrainingSessionsWorkspace` disables "New session" (reset in `finally`). N-1 fixed: `setHasSubmitError(false)` moved before validation. New regression test (controlled-promise POST, `fireEvent.change` for datetime-local): exactly one POST after Cancel → New session → resubmit; role confirmed the test fails without the fix (`expected 2 to be 1`). Changed only `CreateSessionForm.tsx`, `TrainingSessionsWorkspace.tsx`, the test file. Independent re-run: lint 0 errors / 1 warning (N-7), build pass, `npm test` 2/2 pass | `<accept, clarify, or correct>` | `<manually selected role or action>` |
+| `~16:05` | `coder` | see [Prompt 6](#prompt-6--coder-review-fixes) | S-1 fixed: Cancel disabled while the form is pending; `isCreatePending` lifted to `TrainingSessionsWorkspace` disables "New session" (reset in `finally`). N-1 fixed: `setHasSubmitError(false)` moved before validation. New regression test (controlled-promise POST, `fireEvent.change` for datetime-local): exactly one POST after Cancel → New session → resubmit; role confirmed the test fails without the fix (`expected 2 to be 1`). Changed only `CreateSessionForm.tsx`, `TrainingSessionsWorkspace.tsx`, the test file. Independent re-run: lint 0 errors / 1 warning (N-7), build pass, `npm test` 2/2 pass | `accept` — committed as `5a99d65` | manual browser check, then `verify` |
+| `~16:25` | developer | — (manual check) | Developer repeated the browser check in Chrome on `5a99d65`; result matched the earlier assistant check (see Manual Browser Observation); `?mock=sessions-error` did not show the error state | `accept` — Manual Browser Observation now records the developer's own check | `verify` |
+| `~16:33` | `verify` | see [Prompt 7](#prompt-7--verify) | `tasks/training-sessions/verification.md`: verdict `PASS` on `5a99d65` — lint exit 0 (0 errors, 1 warning N-7), build exit 0, `npm test` exit 0 twice (2/2 each, Vitest cold-start flake not reproduced). Read-only; only `verification.md` written. Browser Evidence taken from the developer's check (~16:25). Unverified: AC-LIST-4/5 + AC-MOCK-4 (error state / Try again — no test, `?mock=sessions-error` ineffective under StrictMode), AC-FILTER-5, AC-CREATE-8, AC-CREATE-9, AC-MOCK-6; partial: AC-FILTER-1, AC-CREATE-1/2/3/4/5/7; production bundle not run; no re-review after S-1 fix. Role recommends `test-generator` | `accept` — PASS on all selected checks; unverified items accepted as known limitations, not fixed within onboarding scope; `test-generator` not run (additional coverage is optional per TASK.md) | finish onboarding: commit `verification.md` and the log |
 
 ## Manual Browser Observation
 
-- Command and URL: `<actual command and discovered URL>`
-- Flow exercised: `<list -> filter -> create>`
-- Observed result: `<what actually happened>`
-- Unverified or incomplete behavior: `<none or short list>`
+- Command and URL: `npm run dev`, `http://localhost:5173/` and `http://localhost:5173/?mock=sessions-error` (Chrome), 2026-10-06 ~16:25, code at commit `5a99d65`
+- Flow exercised: `list -> Scheduled -> All -> New session -> empty submit -> past date -> valid future submit`; then `?mock=sessions-error`
+- Observed result:
+  - List: 4 sessions with title, status, and date. Scheduled: 2 sessions. All: 4 again.
+  - Empty submit: two validation messages (title and date/time); no session added.
+  - Past date: "Start date and time must be in the future."
+  - Valid title + future date: the form closed and the new session appeared in the list.
+  - `?mock=sessions-error`: the error state did **not** appear; the normal list loaded.
+- Unverified or incomplete behavior:
+  - List error state and "Try again" (AC-LIST-4/5) not observed: the `?mock=sessions-error` switch does not show the error in dev (React StrictMode runs the load effect twice; the aborted first request consumes the `{ once: true }` error handler). Not covered by an automated test either.
+  - Create failure (AC-CREATE-9) not exercised; duplicate-submit guard (AC-CREATE-5) covered by the regression test only.
 
 ## Completion
 
-- Active work finished: `<timestamp>`
-- Known limitations: `<short list>`
+- Active work finished: `2026-10-06 ~16:33` (after `verify`; about 2 hours of active work, within the 6-hour timebox)
+- Known limitations:
+  - List error state and "Try again" (AC-LIST-4/5) are implemented and reviewed but not verified: no automated test, and the dev switch `?mock=sessions-error` does not show the error under React StrictMode (the aborted first request consumes the `{ once: true }` error handler). AC-MOCK-4 is therefore not proven either.
+  - Not covered by tests or observation: no-match filter state (AC-FILTER-5), created session under the Scheduled filter (AC-CREATE-8), create failure (AC-CREATE-9), default mock create response status (AC-MOCK-6), validation boundaries (3/80 characters, "now"). Only 2 behavior tests exist (filtering, duplicate-submit guard).
+  - Review findings intentionally left open: N-2 (focus / success announcement), N-3 (blank dev page if the Service Worker cannot start — reproduced in the Claude desktop app's built-in browser), N-4, N-5, N-6, N-7 (lint warning on `public/mockServiceWorker.js`).
+  - Deviation from plan: `msw@2.15.0` instead of 3.0.2 (`@vitest/mocker@5.0.3` peer range); `implementation-plan.md` still describes MSW 3.
+  - No re-review after the S-1 / N-1 fix (`5a99d65`); it is supported by the regression test only.
+  - Mocks run only in `npm run dev`; the production build (`npm run preview`) has no backend and shows the error state by design.
+  - Environment: ctx7 unavailable (monthly quota exceeded); Codex hooks `PENDING_ACTIVATION` (Codex not used); in this desktop app `/<role>` commands ran the skill inline in the main session instead of spawning an isolated agent, so each role was run in a separate new session.
 
 ## Prompts
 
@@ -208,4 +224,40 @@ ID задачи: training-sessions.
 - Не изменяй файлы в tasks/**, не делай git add / commit.
 
 STOP: перечисли изменённые файлы, как исправлены S-1 и N-1 и почему выбран этот вариант, что проверяет новый тест, результаты команд и оставшиеся риски. Затем остановись — не запускай code-reviewer, verify или другие роли.
+```
+
+### Prompt 7 — verify
+
+```text
+/verify
+ID задачи: training-sessions.
+
+Контекст и источники:
+- Application Root — корень репозитория (единственное React + TypeScript + Vite приложение, npm).
+- tasks/training-sessions/requirements.md (rev. 2) — критерии приёмки AC-*.
+- tasks/training-sessions/review.md и раздел «Role Decisions» в tasks/training-sessions/workflow-log.md — известные находки, решения по ним и исправления S-1/N-1 (коммит 5a99d65).
+- Раздел «Manual Browser Observation» в workflow-log.md — результат ручной проверки в браузере (используй только то, что там записано, сам браузер не запускай).
+
+Результат:
+Проверь текущее состояние кода только существующими командами проекта, из корня репозитория:
+1. npm run lint
+2. npm run build
+3. npm test — запусти дважды подряд (ранее был нестабильный холодный старт Vitest: «Timeout waiting for worker to respond»).
+4. git status --short и git log --oneline -3 — только чтобы зафиксировать, что проверялось.
+Для каждой команды приведи exit code, решающий фрагмент вывода (число тестов, ошибки, предупреждения) и различай: провал команды, отсутствие инструмента, неприменимо, блокировка окружения.
+
+Артефакт:
+Запиши результат в tasks/training-sessions/verification.md по шаблону роли (Application Root, Commands And Results, Browser Evidence, Unverified Items, Verdict). Пиши на английском языке.
+- Commands And Results — только реально выполненные команды и их фактические результаты.
+- Browser Evidence — перенеси из workflow-log.md только то, что там действительно записано, с указанием, кто проверял; если раздел пуст — так и напиши.
+- Unverified Items — перечисли всё, что не доказано ни автотестом, ни записанным наблюдением, со ссылкой на AC-*. Обязательно учти: состояние ошибки списка и Try again (AC-LIST-4/5) — ручной переключатель ?mock=sessions-error в dev не показывает ошибку (StrictMode-двойной эффект «съедает» once-обработчик), автотеста нет; известные оставленные находки N-2…N-7.
+- Verdict — PASS только если все выбранные проверки прошли; иначе FAIL / BLOCKED / NOT-APPLICABLE.
+
+Ограничения:
+- Не изменяй код, тесты, конфиги, зависимости, lock-файлы и другие файлы, кроме tasks/training-sessions/verification.md.
+- Не устанавливай пакеты, не запускай dev-сервер и браузер, не чини упавшие проверки.
+- Не делай git add / commit.
+- Не заявляй проверку, которую не выполнял.
+
+STOP: сообщи путь к файлу, вердикт, команды с результатами и список непроверенного, порекомендуй следующую роль и остановись — не запускай другие роли.
 ```
