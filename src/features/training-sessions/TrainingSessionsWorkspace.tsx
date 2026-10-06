@@ -16,6 +16,8 @@ export function TrainingSessionsWorkspace() {
   const [reloadToken, setReloadToken] = useState(0)
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  // The form must stay mounted while a create request is pending (AC-CREATE-5).
+  const [isCreatePending, setIsCreatePending] = useState(false)
   const createFormId = useId()
 
   useEffect(() => {
@@ -41,11 +43,16 @@ export function TrainingSessionsWorkspace() {
   }
 
   async function handleCreate(input: NewSessionInput) {
-    const created = await createSession(input)
-    setListState((current) =>
-      current.kind === 'success' ? { kind: 'success', sessions: [...current.sessions, created] } : current,
-    )
-    setIsCreateOpen(false)
+    setIsCreatePending(true)
+    try {
+      const created = await createSession(input)
+      setListState((current) =>
+        current.kind === 'success' ? { kind: 'success', sessions: [...current.sessions, created] } : current,
+      )
+      setIsCreateOpen(false)
+    } finally {
+      setIsCreatePending(false)
+    }
   }
 
   function renderContent() {
@@ -77,6 +84,7 @@ export function TrainingSessionsWorkspace() {
             type="button"
             aria-expanded={isCreateOpen}
             aria-controls={createFormId}
+            disabled={isCreatePending}
             onClick={() => setIsCreateOpen((current) => !current)}
           >
             New session

@@ -20,7 +20,8 @@ Active work started: `<timestamp>`
 | `~15:04` | `requirements-analyst` | see [Prompt 2](#prompt-2--requirements-analyst-clarification) | `requirements.md` rev. 2: decisions D-1…D-6; OQ-1/2/3/8/9 closed; verdict "Ready for planning" | `accept` | `writing-plans` (new session) |
 | `~15:21` | `writing-plans` | see [Prompt 3](#prompt-3--writing-plans) | `tasks/training-sessions/implementation-plan.md`: 7 ordered steps; G-1…G-4 decided (Vitest 5 + Testing Library + jsdom + MSW 3, inline form, provisional `GET/POST /api/sessions`); essential test = filtering; risks R-1…R-9. ctx7 failed ("Monthly quota exceeded"), role used official docs + `npm view` instead | `accept` — pass R-1 (build with test files) and R-2 (MSW 3 API) to `coder` | `coder` (new session) |
 | `~15:41` | `coder` | see [Prompt 4](#prompt-4--coder) | Steps 1–6 implemented (`src/features/training-sessions/`, `src/mocks/`, `src/test/`, `App.tsx`, `main.tsx`, `vite.config.ts`, `package.json`). Deviation: `msw@2.15.0` instead of 3.0.2 because `@vitest/mocker@5.0.3` requires `msw ^2.4.9` (developer approved when the role asked during the run). Role-reported checks: lint 0 errors / 1 warning (`public/mockServiceWorker.js`), build pass, `npm test` 1st run failed (Vitest worker start timeout, no tests ran), 2nd/3rd runs 1/1 pass. ctx7 unavailable (quota), API checked against installed `.d.ts` | `accept` — independent re-run: lint 0 errors / 1 warning, build pass, `npm test` 1/1 pass; MSW 2.x deviation approved | `code-reviewer` (new session, staged diff) |
-| `~15:55` | `code-reviewer` | see [Prompt 5](#prompt-5--code-reviewer) | `tasks/training-sessions/review.md` (saved verbatim): verdict `NEEDS-CHANGES`; 0 blocking, 1 should-fix (S-1: duplicate-submit guard bypassed via Cancel / "New session" while POST pending, AC-CREATE-5), 7 nice-to-have (N-1…N-7); MSW 2.15 deviation confirmed correct. Note: `workflow-log.md` was also staged, so it was part of the 21-file review surface | `<accept, clarify, or correct>` | `<manually selected role or action>` |
+| `~15:55` | `code-reviewer` | see [Prompt 5](#prompt-5--code-reviewer) | `tasks/training-sessions/review.md` (saved verbatim): verdict `NEEDS-CHANGES`; 0 blocking, 1 should-fix (S-1: duplicate-submit guard bypassed via Cancel / "New session" while POST pending, AC-CREATE-5), 7 nice-to-have (N-1…N-7); MSW 2.15 deviation confirmed correct. Note: `workflow-log.md` was also staged, so it was part of the 21-file review surface | `correct` — fix S-1 (real AC-CREATE-5 defect) and N-1 (one-line UX fix) via `coder`. Keep N-2 (a11y improvement, outside onboarding scope), N-3 / N-4 (dev / test-only), N-5 / N-6 (edge cases not defined by requirements), N-7 (fix needs `eslint.config.js`, which the plan keeps unchanged). Reviewed code committed as `ac881ae` | `coder` (fix S-1, N-1) |
+| `~16:05` | `coder` | see [Prompt 6](#prompt-6--coder-review-fixes) | S-1 fixed: Cancel disabled while the form is pending; `isCreatePending` lifted to `TrainingSessionsWorkspace` disables "New session" (reset in `finally`). N-1 fixed: `setHasSubmitError(false)` moved before validation. New regression test (controlled-promise POST, `fireEvent.change` for datetime-local): exactly one POST after Cancel → New session → resubmit; role confirmed the test fails without the fix (`expected 2 to be 1`). Changed only `CreateSessionForm.tsx`, `TrainingSessionsWorkspace.tsx`, the test file. Independent re-run: lint 0 errors / 1 warning (N-7), build pass, `npm test` 2/2 pass | `<accept, clarify, or correct>` | `<manually selected role or action>` |
 
 ## Manual Browser Observation
 
@@ -177,4 +178,34 @@ ID задачи: training-sessions.
 - Не создавай файлы: я сохраню твой ответ дословно в tasks/training-sessions/review.md.
 
 STOP: выдай находки и вердикт, порекомендуй следующую роль для исправлений (если нужны) и остановись — не запускай coder, verify или другие роли.
+```
+
+### Prompt 6 — coder (review fixes)
+
+```text
+/coder
+ID задачи: training-sessions.
+
+Контекст и источники:
+- tasks/training-sessions/review.md — находки S-1 и N-1 (файлы, строки, сценарии отказа, предложенные минимальные исправления).
+- tasks/training-sessions/requirements.md (rev. 2) — AC-CREATE-5, AC-CREATE-6, AC-CREATE-9.
+- tasks/training-sessions/implementation-plan.md — решения G-1 и G-4 (guard на ref + state, inline-форма).
+- Текущий код: src/features/training-sessions/CreateSessionForm.tsx и TrainingSessionsWorkspace.tsx.
+
+Результат:
+Исправь только две находки из review.md:
+- S-1: пока create-запрос выполняется, повторная отправка не должна быть возможна ни в каком сценарии — включая Cancel и повторное открытие формы через «New session». Выбери одно из минимальных исправлений, предложенных в review.md (например, сделать Cancel и «New session» недоступными на время запроса, подняв признак pending в TrainingSessionsWorkspace), и кратко обоснуй выбор. Поведение AC-CREATE-5/6/9 и закрытие формы после успеха должно сохраниться.
+- N-1: при неудачной валидации старое сообщение об ошибке создания («The session could not be created…») должно исчезать.
+- Добавь один регрессионный поведенческий тест на S-1: пока POST не завершён (используй управляемый тестом промис в server.use, без delay() и fake timers), Cancel/«New session» не позволяют отправить второй запрос — ровно один POST. Для поля datetime-local используй fireEvent.change с датой в далёком будущем (риск R-4 из плана).
+
+Проверки:
+Запусти npm run lint, npm run build и npm test и приведи фактические результаты (exit code, ошибки, число тестов).
+
+Ограничения:
+- Не трогай остальные находки (N-2…N-7) и ничего сверх S-1, N-1 и одного регрессионного теста.
+- Не меняй другие файлы, кроме CreateSessionForm.tsx, TrainingSessionsWorkspace.tsx, нового или существующего тестового файла и, при необходимости, CSS для disabled-состояния.
+- Не устанавливай и не обновляй зависимости, не меняй конфиги.
+- Не изменяй файлы в tasks/**, не делай git add / commit.
+
+STOP: перечисли изменённые файлы, как исправлены S-1 и N-1 и почему выбран этот вариант, что проверяет новый тест, результаты команд и оставшиеся риски. Затем остановись — не запускай code-reviewer, verify или другие роли.
 ```

@@ -30,6 +30,7 @@ export function CreateSessionForm({ onCreate, onCancel }: CreateSessionFormProps
       return
     }
 
+    setHasSubmitError(false)
     const result = validateNewSession(values, Date.now())
     if (!result.ok) {
       setErrors(result.errors)
@@ -43,7 +44,6 @@ export function CreateSessionForm({ onCreate, onCancel }: CreateSessionFormProps
 
     inFlightRef.current = true
     setErrors({})
-    setHasSubmitError(false)
     setIsPending(true)
     try {
       await onCreate(result.input)
@@ -104,7 +104,8 @@ export function CreateSessionForm({ onCreate, onCancel }: CreateSessionFormProps
         <button type="submit" disabled={isPending}>
           {isPending ? 'Creating…' : 'Create session'}
         </button>
-        <button type="button" onClick={onCancel}>
+        {/* Unmounting the form would not cancel the request and would reset the duplicate guard. */}
+        <button type="button" disabled={isPending} onClick={onCancel}>
           Cancel
         </button>
       </div>
