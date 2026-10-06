@@ -18,7 +18,9 @@ Active work started: `<timestamp>`
 | --- | --- | --- | --- | --- | --- |
 | `~14:40` | `requirements-analyst` | see [Prompt 1](#prompt-1--requirements-analyst) | `tasks/training-sessions/requirements.md` rev. 1: AC for list/filter/create/mock/test/manual; verdict "ready with conditions", 4 blocking OQs (OQ-1, OQ-2, OQ-3, OQ-9) | `clarify` — accept defaults A-1, A-2, A-3, A-4, A-7; require mock data with ≥2 statuses | `requirements-analyst` (clarification) |
 | `~15:04` | `requirements-analyst` | see [Prompt 2](#prompt-2--requirements-analyst-clarification) | `requirements.md` rev. 2: decisions D-1…D-6; OQ-1/2/3/8/9 closed; verdict "Ready for planning" | `accept` | `writing-plans` (new session) |
-| `~15:21` | `writing-plans` | see [Prompt 3](#prompt-3--writing-plans) | `tasks/training-sessions/implementation-plan.md`: 7 ordered steps; G-1…G-4 decided (Vitest 5 + Testing Library + jsdom + MSW 3, inline form, provisional `GET/POST /api/sessions`); essential test = filtering; risks R-1…R-9. ctx7 failed ("Monthly quota exceeded"), role used official docs + `npm view` instead | `<accept, clarify, or correct>` | `<manually selected role or action>` |
+| `~15:21` | `writing-plans` | see [Prompt 3](#prompt-3--writing-plans) | `tasks/training-sessions/implementation-plan.md`: 7 ordered steps; G-1…G-4 decided (Vitest 5 + Testing Library + jsdom + MSW 3, inline form, provisional `GET/POST /api/sessions`); essential test = filtering; risks R-1…R-9. ctx7 failed ("Monthly quota exceeded"), role used official docs + `npm view` instead | `accept` — pass R-1 (build with test files) and R-2 (MSW 3 API) to `coder` | `coder` (new session) |
+| `~15:41` | `coder` | see [Prompt 4](#prompt-4--coder) | Steps 1–6 implemented (`src/features/training-sessions/`, `src/mocks/`, `src/test/`, `App.tsx`, `main.tsx`, `vite.config.ts`, `package.json`). Deviation: `msw@2.15.0` instead of 3.0.2 because `@vitest/mocker@5.0.3` requires `msw ^2.4.9` (developer approved when the role asked during the run). Role-reported checks: lint 0 errors / 1 warning (`public/mockServiceWorker.js`), build pass, `npm test` 1st run failed (Vitest worker start timeout, no tests ran), 2nd/3rd runs 1/1 pass. ctx7 unavailable (quota), API checked against installed `.d.ts` | `accept` — independent re-run: lint 0 errors / 1 warning, build pass, `npm test` 1/1 pass; MSW 2.x deviation approved | `code-reviewer` (new session, staged diff) |
+| `~15:55` | `code-reviewer` | see [Prompt 5](#prompt-5--code-reviewer) | `tasks/training-sessions/review.md` (saved verbatim): verdict `NEEDS-CHANGES`; 0 blocking, 1 should-fix (S-1: duplicate-submit guard bypassed via Cancel / "New session" while POST pending, AC-CREATE-5), 7 nice-to-have (N-1…N-7); MSW 2.15 deviation confirmed correct. Note: `workflow-log.md` was also staged, so it was part of the 21-file review surface | `<accept, clarify, or correct>` | `<manually selected role or action>` |
 
 ## Manual Browser Observation
 
@@ -113,4 +115,66 @@ ID задачи: training-sessions. Используй именно этот ID 
 - Не меняй несвязанный код и конфигурацию сверх того, что нужно выбранным инструментам.
 
 STOP: сообщи путь к файлу, краткое резюме плана, принятые тобой решения по G-1…G-4, оставшиеся риски и вопросы и рекомендуемую следующую роль. Затем остановись — не запускай другие роли и не начинай реализацию.
+```
+
+### Prompt 4 — coder
+
+```text
+/coder
+ID задачи: training-sessions. Используй именно этот ID и папку.
+
+Контекст и источники:
+- tasks/training-sessions/implementation-plan.md — главный источник: шаги 1–6, решения G-1…G-4, контракты, обязательный тест, риски R-1…R-9.
+- tasks/training-sessions/requirements.md (rev. 2) — критерии приёмки AC-* и решения D-1…D-6.
+- Применимые rulesets для coder (common → framework → project) и текущий код в src/.
+
+Результат:
+Реализуй Training Sessions Workspace строго по плану, шаги 1–6:
+- Шаг 1 — разрешаю выполнить ровно эти команды из плана (решение D-5): npm install -D vitest jsdom @testing-library/react @testing-library/dom @testing-library/user-event msw и npx msw init public --save; добавь скрипт "test": "vitest run". Если возникнет конфликт peer-зависимостей — не используй --force / --legacy-peer-deps, а остановись и сообщи.
+- Шаги 2–5 — типы, моки, sessionsApi, validateNewSession, компоненты, подключение в App.tsx и main.tsx.
+- Шаг 6 — src/test/setup.ts и обязательный поведенческий тест фильтрации (TrainingSessionsWorkspace.test.tsx).
+
+Риски из плана, которые нужно учесть:
+- R-2: API MSW 3 и Vitest 5 сверяй с типами установленных пакетов в node_modules (например, onUnhandledFrame), а не по памяти. Можно попробовать node ./toolchain/bin/ctx7.mjs; если он недоступен — отметь это как degraded evidence.
+- R-1: если npm run build падает из-за тестовых файлов или msw/node, примени решение из R-1 (отдельный tsconfig.test.json), не ослабляя строгость TypeScript.
+
+Проверки:
+Запусти npm run lint, npm run build и npm test и приведи фактические результаты (exit code, ошибки). Не заявляй прохождение проверки, которую не запускал.
+
+Ограничения:
+- Не добавляй ничего сверх плана: никаких необязательных тестов из раздела «Additional Risk-Based Tests», роутинга, других библиотек (включая jest-dom).
+- Не меняй файлы из раздела плана «Explicitly not changed» (index.html, src/index.css, eslint.config.js, README.md, rulesets/**, toolchain/**), кроме tsconfig по R-1.
+- Не изменяй файлы в tasks/** и не создавай specs/.
+- Не делай git commit.
+- Если план расходится с реальным API библиотек или с кодом — выбери минимальное отклонение, явно перечисли его в отчёте; при серьёзном расхождении остановись и спроси.
+
+STOP: перечисли изменённые и созданные файлы, что реализовано (со ссылкой на AC-*), отклонения от плана, команды проверки с результатами, оставшиеся риски и непроверенное. Затем остановись — не запускай code-reviewer или другие роли.
+```
+
+### Prompt 5 — code-reviewer
+
+```text
+/code-reviewer
+ID задачи: training-sessions.
+
+Поверхность ревью:
+Только staged-изменения относительно HEAD (git diff --cached, для обзора — git diff --cached --stat). Не ревьюй unstaged- и untracked-файлы, весь репозиторий и файлы вне индекса.
+Сгенерированные файлы package-lock.json и public/mockServiceWorker.js не разбирай построчно — только проверь, что их изменение ожидаемо.
+
+Контекст и источники:
+- tasks/training-sessions/requirements.md (rev. 2) — критерии приёмки AC-* и решения D-1…D-6.
+- tasks/training-sessions/implementation-plan.md — решения G-1…G-4, контракты, обязательный тест.
+- Применимые rulesets для code-reviewer (common → framework → project).
+- Известное согласованное отклонение: msw 2.15.0 вместо 3.0.2 из плана (@vitest/mocker@5.0.3 требует msw ^2.4.9), поэтому используется onUnhandledRequest вместо onUnhandledFrame. Оцени, корректно ли оно реализовано, но не считай его само по себе нарушением.
+
+Результат:
+Ревью изменений на соответствие AC-* и плану: корректность, состояния loading/error/empty, эффекты и отмена запросов, валидация, защита от повторной отправки, граница запросов и моки, доступность, безопасность, качество обязательного теста. Отдельно отметь, какие AC не покрыты автотестами.
+Находки — сначала, по убыванию серьёзности (blocking / should-fix / nice-to-have), с файлом и строкой и конкретным сценарием отказа. Отличай правила из rulesets от личных предпочтений. В конце — вердикт PASS или NEEDS-CHANGES и оставшиеся пробелы в тестах и рантайме.
+
+Ограничения:
+- Только чтение: не изменяй код, тесты, конфиги, документацию, rulesets и файлы в tasks/**. Не меняй состояние индекса (никаких git add / reset / commit / stash).
+- Не запускай npm-команды и dev-сервер — это зона verify и ручной проверки.
+- Не создавай файлы: я сохраню твой ответ дословно в tasks/training-sessions/review.md.
+
+STOP: выдай находки и вердикт, порекомендуй следующую роль для исправлений (если нужны) и остановись — не запускай coder, verify или другие роли.
 ```

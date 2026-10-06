@@ -1,5 +1,7 @@
+import { TrainingSessionsWorkspace } from './features/training-sessions/TrainingSessionsWorkspace'
+
 function App() {
-  return <h1>Accelerator Testing Project</h1>
+  return <TrainingSessionsWorkspace />
 }
 
 export default App
